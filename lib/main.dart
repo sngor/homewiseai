@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
+import '/home/runner/work/myapp/myapp/lib/models/appliance.dart';
+import '/home/runner/work/myapp/myapp/lib/screens/appliance_detail_screen.dart';
+
+
+import 'dart:io';
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -32,10 +42,9 @@ class MyApp extends StatelessWidget {
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
-  }
+  } // Removed the floating action button as it's not needed for this functionality
 }
-
-class MyHomePage extends StatefulWidget {
+ class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
   // This widget is the home page of your application. It is stateful, meaning
@@ -51,21 +60,9 @@ class MyHomePage extends StatefulWidget {
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
-}
+}class _MyHomePageState extends State<MyHomePage> {
+  final List<Appliance> _appliances = [];
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,41 +79,177 @@ class _MyHomePageState extends State<MyHomePage> {
         // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
+        // the App.build method, and use it to set our appbar title. 
         title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      body: _appliances.isEmpty
+          ? const Center(
+              child: Text('No appliances added yet.'),
+            )
+          : ListView.builder(
+          itemCount: _appliances.length,
+          itemBuilder: (context, index) {
+            final appliance = _appliances[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              elevation: 2.0,
+              child: ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => ApplianceDetailScreen(appliance: appliance)),
+                  );
+                },
+                title: Text(appliance.name ?? 'Unnamed Appliance'),
+                subtitle: appliance.type != null
+                    ? Text('${appliance.type} - ${appliance.modelNumber ?? ''}')
+                    : Text(appliance.modelNumber ?? ''),
+              ),
+            );
+          },
+      ), // Changed the return type to Scaffold
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final newAppliance = await Navigator.push<Appliance>(
+            context,
+            MaterialPageRoute(builder: (context) => const AddApplianceScreen()),
+          );
+          if (newAppliance != null) {
+            setState(() {
+              _appliances.add(newAppliance);
+            });
+          }
+        },
+        tooltip: 'Add Appliance',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class AddApplianceScreen extends StatefulWidget {
+  const AddApplianceScreen({super.key});
+
+  @override
+  _AddApplianceScreenState createState() => _AddApplianceScreenState();
+}
+
+class _AddApplianceScreenState extends State<AddApplianceScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _typeController = TextEditingController();
+  final _modelNumberController = TextEditingController();
+  final _serialNumberController = TextEditingController();
+  String _extractedText = '';
+
+  Future<void> _pickImageAndExtractText() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.camera);
+
+    if (pickedFile != null) {
+      final inputImage = InputImage.fromFile(File(pickedFile.path));
+      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      await textRecognizer.close();
+
+      setState(() {
+        _extractedText = recognizedText.text;
+      });
+    }
+  }
+
+  void _saveAppliance() {
+    if (_formKey.currentState!.validate()) {
+      final newAppliance = Appliance(
+        name: _nameController.text.isEmpty ? null : _nameController.text,
+        type: _typeController.text.isEmpty ? null : _typeController.text,
+        modelNumber: _modelNumberController.text.isEmpty ? null : _modelNumberController.text,
+        serialNumber: _serialNumberController.text.isEmpty ? null : _serialNumberController.text,
+        purchaseDate: null, // You can add a date picker later
+        maintenanceHistory: [], // Initialize with an empty list
+        extractedLabelText: _extractedText.isEmpty ? null : _extractedText,
+      );
+      Navigator.pop(context, newAppliance);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _typeController.dispose();
+    _modelNumberController.dispose();
+    _serialNumberController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add New Appliance'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Appliance Name'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an appliance name';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _typeController,
+                decoration: const InputDecoration(labelText: 'Type'),
+              ),
+              TextFormField(
+                controller: _modelNumberController,
+                decoration: const InputDecoration(labelText: 'Model Number'),
+              ),
+              TextFormField(
+                controller: _serialNumberController,
+                decoration: const InputDecoration(labelText: 'Serial Number'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _pickImageAndExtractText,
+                child: const Text('Pick Image and Extract Text'),
+              ),
+              const SizedBox(height: 20),
+              if (_extractedText.isNotEmpty)
+                Card(
+                  elevation: 2.0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Extracted Text:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8.0),
+                        Text(_extractedText),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _saveAppliance,
+                child: const Text('Save Appliance'),
+              ),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
