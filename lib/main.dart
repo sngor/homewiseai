@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 
-import '/home/runner/work/myapp/myapp/lib/models/appliance.dart';
-import '/home/runner/work/myapp/myapp/lib/screens/appliance_detail_screen.dart';
+import 'models/appliance.dart';
+import 'screens/appliance_detail_screen.dart';
 
 
 import 'dart:io';

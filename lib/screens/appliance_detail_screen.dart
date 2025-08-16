@@ -83,15 +83,17 @@ class _ApplianceDetailScreenState extends State<ApplianceDetailScreen> {
                 physics: NeverScrollableScrollPhysics(),
                 itemCount: _manualLinks.length,
                 itemBuilder: (context, index) {
-                  return ListTile(title: Text(_manualLinks[index]), onTap: () => launchUrl(Uri.parse(_manualLinks[index])));
-                 onTap: () async {
- onTap: () async {
-                    final url = Uri.parse(_manualLinks[index]);
-                    if (await canLaunchUrl(url)) {
-                      await launchUrl(url);
-                    }
-                 },);
-                },)
+                  return ListTile(
+                    title: Text(_manualLinks[index]),
+                    onTap: () async {
+                      final url = Uri.parse(_manualLinks[index]);
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      }
+                    },
+                  );
+                },
+              )
               )
           ],
         ),
